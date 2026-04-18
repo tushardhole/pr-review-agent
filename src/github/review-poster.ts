@@ -11,7 +11,7 @@ export class ReviewPoster implements IReviewPoster {
       owner: context.owner,
       repo: context.repo,
       pull_number: context.pullNumber,
-      body: payload.summary,
+      body: payload.request.body,
       event: payload.request.event,
       comments: payload.request.comments
     });

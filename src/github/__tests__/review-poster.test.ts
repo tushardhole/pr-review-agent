@@ -6,9 +6,9 @@ describe("ReviewPoster", () => {
   const poster = new ReviewPoster({ rest: { pulls: { createReview } } });
   const context: PullRequestContext = { owner: "acme", repo: "widget", pullNumber: 7 };
   const payload: ReviewPayload = {
-    summary: "AI review summary",
+    summary: "Plain summary should not be used",
     request: {
-      body: "AI review summary",
+      body: "✅ Suggested decision: APPROVE\n\nAI review summary",
       event: "COMMENT",
       comments: [{ path: "src/a.ts", line: 10, side: "RIGHT", body: "[Warning] Use guard clause." }]
     }
@@ -23,7 +23,7 @@ describe("ReviewPoster", () => {
       owner: "acme",
       repo: "widget",
       pull_number: 7,
-      body: "AI review summary",
+      body: "✅ Suggested decision: APPROVE\n\nAI review summary",
       event: "COMMENT",
       comments: [{ path: "src/a.ts", line: 10, side: "RIGHT", body: "[Warning] Use guard clause." }]
     });

@@ -2,10 +2,12 @@ import { IRepoClient, PullRequestContext, ReviewResult } from "../types";
 import { validateReviewResult } from "../prompts/review-schema";
 import { READ_FILE_TOOL } from "./tool-definitions";
 import { ToolCall, executeToolCall } from "./tool-executor";
+import { normalizeReviewPayload } from "./review-normalizer";
 
 type Message = Record<string, unknown>;
 type ToolCallRaw = { id: string; function: { name: string; arguments: string } };
 type CompletionResponse = { choices: Array<{ message: { content?: string; tool_calls?: ToolCallRaw[] } }> };
+const DEBUG_FLAG = "DEBUG_LLM_RESPONSE";
 
 interface LlmClient {
   chat: { completions: { create(args: unknown): Promise<unknown> } };
@@ -28,17 +30,32 @@ const mapToolCall = (toolCall: ToolCallRaw): ToolCall => ({
   argumentsJson: toolCall.function.arguments
 });
 
+const shouldLogDebug = (): boolean => process.env[DEBUG_FLAG] === "true";
+
+const debugLog = (label: string, value: string): void => {
+  if (!shouldLogDebug()) {
+    return;
+  }
+  console.log(`[llm-debug] ${label} start`);
+  console.log(value);
+  console.log(`[llm-debug] ${label} end`);
+};
+
 const parseReview = (raw: string): ReviewResult => {
+  debugLog("raw-response", raw);
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch {
+  } catch (error) {
+    debugLog("json-parse-error", error instanceof Error ? error.message : String(error));
     throw new Error("LLM returned invalid JSON.");
   }
-  if (!validateReviewResult(parsed)) {
+  const normalized = normalizeReviewPayload(parsed);
+  if (!validateReviewResult(normalized)) {
+    debugLog("parsed-json-invalid", JSON.stringify(normalized, null, 2));
     throw new Error("LLM response does not match review schema.");
   }
-  return parsed;
+  return normalized;
 };
 
 export const runReview = async (args: ReviewRunArgs): Promise<ReviewResult> => {

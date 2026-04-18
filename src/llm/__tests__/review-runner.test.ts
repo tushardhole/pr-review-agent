@@ -95,4 +95,36 @@ describe("runReview", () => {
       })
     ).rejects.toThrow("LLM response does not match review schema");
   });
+
+  it("normalizes common provider response shape", async () => {
+    create.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content:
+              '{"summary":"review","approval":false,"comments":[{"line":"9","message":"Check this."},{"path":"src/a.ts","line":"7","message":"Add guard."}]}'
+          }
+        }
+      ]
+    });
+    const result = await runReview({
+      client,
+      repoClient,
+      context,
+      ref: "main",
+      model: "gpt-4o",
+      systemPrompt: "system",
+      userPrompt: "user",
+      maxContextRounds: 1
+    });
+    expect(result.approval).toBe("request_changes");
+    expect(result.comments).toEqual([
+      {
+        path: "src/a.ts",
+        line: 7,
+        severity: "suggestion",
+        body: "Add guard."
+      }
+    ]);
+  });
 });
