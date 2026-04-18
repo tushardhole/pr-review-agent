@@ -1,5 +1,5 @@
-name: Tushar DiffSafe PR Review Agent
-description: Provider-agnostic AI PR reviews with schema-safe output and diff-anchor resilience.
+name: Safe PR Review Agent
+description: Provider-agnostic AI PR reviews with schema-safe output normalization, diff-anchor filtering, and inline fallback safety.
 author: Tushar Dhole
 branding:
   icon: shield
