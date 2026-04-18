@@ -79,6 +79,14 @@ flowchart TD
 | `extra_prompt` | No | empty | Extra instruction appended to prompt |
 | `max_context_rounds` | No | `3` | Max tool-call rounds for additional file reads |
 
+### Debug Observability (Environment Variables)
+
+Use these optional environment variables on the action step when diagnosing provider output issues:
+
+- `DEBUG_LLM_RESPONSE` (`true`/`false`, default `false`) - enable LLM debug logs
+- `DEBUG_LLM_RESPONSE_MAX_CHARS` (default `4000`) - truncate debug payload output
+- `DEBUG_LLM_RESPONSE_REDACT` (`true`/`false`, default `true`) - redact token-like secrets from debug logs
+
 ## Provider Examples
 
 ### OpenAI (default)
