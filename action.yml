@@ -1,9 +1,9 @@
-name: PR Review Agent
-description: AI-powered pull request review using OpenAI-compatible APIs.
+name: Safe PR Review Agent
+description: Provider-agnostic AI PR reviews with schema-safe output normalization, diff-anchor filtering, and inline fallback safety.
 author: Tushar Dhole
 branding:
-  icon: check-circle
-  color: purple
+  icon: shield
+  color: blue
 inputs:
   github_token:
     description: GitHub token for reading PR data and posting review comments.
