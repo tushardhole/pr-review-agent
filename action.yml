@@ -1,0 +1,34 @@
+name: PR Review Agent
+description: AI-powered pull request review using OpenAI-compatible APIs.
+author: PR Review Agent
+inputs:
+  github_token:
+    description: GitHub token for reading PR data and posting review comments.
+    required: true
+  openai_api_key:
+    description: API key for the OpenAI-compatible provider.
+    required: true
+  openai_base_url:
+    description: Base URL for OpenAI-compatible API endpoint.
+    required: false
+  model:
+    description: Model name to use for code review.
+    required: false
+  exclude_patterns:
+    description: Comma-separated glob patterns for files to exclude.
+    required: false
+  max_files:
+    description: Maximum number of changed files to review.
+    required: false
+  review_level:
+    description: Review depth. One of quick, thorough, security-focused.
+    required: false
+  extra_prompt:
+    description: Extra instructions appended to the system prompt.
+    required: false
+  max_context_rounds:
+    description: Maximum file-reading tool call rounds for context gathering.
+    required: false
+runs:
+  using: node20
+  main: dist/index.js

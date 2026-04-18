@@ -1,0 +1,25 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#4C1D95"/>
+    </linearGradient>
+    <linearGradient id="icon" x1="120" y1="60" x2="260" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="320" rx="20" fill="url(#bg)"/>
+  <rect x="78" y="58" width="144" height="144" rx="20" fill="url(#icon)"/>
+  <path d="M125 130L147 152L181 108" stroke="#0F172A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="112" y="94" width="76" height="76" rx="12" stroke="#0F172A" stroke-width="10"/>
+  <text x="280" y="136" fill="#F8FAFC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="64" font-weight="700">
+    PR Review Agent
+  </text>
+  <text x="282" y="186" fill="#C4B5FD" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500">
+    AI-Powered Pull Request Reviews
+  </text>
+  <text x="282" y="230" fill="#CBD5E1" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="400">
+    OpenAI-Compatible " LLM Agnostic " GitHub Native
+  </text>
+</svg>

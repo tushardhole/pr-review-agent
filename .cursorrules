@@ -1,0 +1,98 @@
+# The rules in this file OVERRIDE default behavior.
+# If a request conflicts with these rules, ask for clarification.
+
+# === CRITICAL RULES ===
+- Do NOT change public APIs, exported functions, or action inputs/outputs unless explicitly instructed
+- Preserve existing behavior unless task requires change
+- Do NOT refactor unrelated code
+- Make minimal, focused changes
+- If unclear, ASK instead of guessing
+
+# === PROJECT CONTEXT ===
+- Runtime: Node.js (GitHub Actions environment)
+- Language: TypeScript (strict mode)
+- Testing: Jest
+- Purpose: GitHub Action (inputs/outputs, CI-safe behavior required)
+
+# === CLEAN CODE RULES ===
+- One function = one responsibility
+- Functions must be small (< 40 lines preferred)
+- Files must be small and focused (< 300 lines)
+- Use descriptive, intention-revealing names
+- Avoid nesting deeper than 2-3 levels
+- Prefer early returns
+- Eliminate duplication
+
+# === SOLID ENFORCEMENT ===
+- Single Responsibility: separate parsing, logic, and side effects
+- Open/Closed: extend via new modules, avoid modifying stable logic
+- Dependency Inversion: isolate GitHub APIs behind small wrappers
+- Avoid tightly coupled modules
+
+# === ARCHITECTURE (IMPORTANT FOR ACTIONS) ===
+- Separate:
+  - input parsing (GitHub Actions inputs)
+  - core business logic (pure functions)
+  - side effects (GitHub API, logging, filesystem)
+- Core logic must be testable without GitHub environment
+- Wrap GitHub Actions toolkit (e.g. core, github) in thin adapters
+
+# === TYPESCRIPT RULES ===
+- Strict typing required (no any)
+- Always define explicit return types for exported functions
+- Use type aliases or interfaces for complex objects
+- Prefer union types over loose typing
+- Avoid type assertions unless necessary
+
+# === FUNCTION DESIGN ===
+- Prefer pure functions (no side effects)
+- No hidden dependencies (pass everything explicitly)
+- Max ~4 parameters (otherwise use an object)
+- Avoid boolean flags that change behavior (split functions instead)
+
+# === GITHUB ACTIONS RULES ===
+- Validate all inputs from core.getInput
+- Handle missing/invalid inputs gracefully
+- Fail using core.setFailed for errors
+- Do NOT throw uncaught exceptions in action entrypoint
+- Log useful debug info (but no noise)
+
+# === TESTING RULES (JEST) ===
+- Write unit tests for all business logic
+- Add tests when modifying logic
+- Do NOT remove tests unless explicitly instructed
+
+# === WHEN TO ADD INTEGRATION TESTS ===
+- When GitHub API interactions change
+- When multiple modules interact
+- When action behavior (inputs/outputs) changes
+
+# === TEST QUALITY ===
+- Use clear arrange/act/assert structure
+- Test behavior, not implementation details
+- Cover edge cases and error paths
+- Mock external dependencies (GitHub APIs, fs, network)
+
+# === JEST CONVENTIONS ===
+- Use describe blocks per module/function
+- Use it or test with clear behavior descriptions
+- Prefer jest.mock for external dependencies
+- Keep tests deterministic (no real network calls)
+
+# === DEPENDENCY RULES ===
+- Do NOT introduce new libraries without approval
+- Reuse existing utilities
+- Avoid duplication
+
+# === EDITING RULES ===
+- Do NOT reformat unrelated code
+- Match existing style exactly
+- Do NOT rename variables unless necessary
+
+# === OUTPUT EXPECTATIONS ===
+- Provide complete, runnable TypeScript code
+- Include tests when logic changes
+- No TODO placeholders unless requested
+
+# === WHEN IN DOUBT ===
+- Ask a clarifying question before proceeding
