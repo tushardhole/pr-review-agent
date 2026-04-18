@@ -28,7 +28,7 @@ jobs:
         run: npm run package
 
       - name: Run PR Review Agent
-        uses: ./
+        uses: tushardhole/pr-review-agent@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
