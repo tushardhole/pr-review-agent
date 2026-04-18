@@ -7,6 +7,7 @@ import { readConventionFiles } from "./context/convention-reader";
 import { mapReviewResultToRequest } from "./formatters/review-mapper";
 import { filterFilesForReview } from "./github/file-filter";
 import { PrClient } from "./github/pr-client";
+import { filterResolvableComments } from "./github/review-comment-validator";
 import { RepoClient } from "./github/repo-client";
 import { ReviewPoster } from "./github/review-poster";
 import { createOpenAiClient } from "./llm/openai-client";
@@ -67,10 +68,12 @@ export const executeReviewFlowWithRuntime = async (runtime: ActionsGitHubRuntime
     }),
     maxContextRounds: inputs.maxContextRounds
   });
+  const mappedRequest = mapReviewResultToRequest(review);
+  const validatedRequest = filterResolvableComments(mappedRequest, changedFiles).request;
 
   await reviewPoster.postReview(context, {
     summary: review.summary,
-    request: mapReviewResultToRequest(review)
+    request: validatedRequest
   });
 };
 
