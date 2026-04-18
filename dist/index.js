@@ -274,18 +274,18 @@ exports.formatCommentBody = formatCommentBody;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.mapReviewResultToRequest = void 0;
 const comment_formatter_1 = __nccwpck_require__(2394);
-const toEvent = (approval) => {
+const toDecisionBadge = (approval) => {
     if (approval === "approve") {
-        return "APPROVE";
+        return "✅ Suggested decision: APPROVE";
     }
     if (approval === "request_changes") {
-        return "REQUEST_CHANGES";
+        return "🚨 Suggested decision: REQUEST_CHANGES";
     }
-    return "COMMENT";
+    return "💬 Suggested decision: COMMENT";
 };
 const mapReviewResultToRequest = (result) => ({
-    body: result.summary,
-    event: toEvent(result.approval),
+    body: `${toDecisionBadge(result.approval)}\n\n${result.summary}`.trim(),
+    event: "COMMENT",
     comments: result.comments.map((comment) => ({
         path: comment.path,
         line: comment.line,
@@ -443,6 +443,64 @@ exports.RepoClient = RepoClient;
 
 /***/ }),
 
+/***/ 4609:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.filterResolvableComments = void 0;
+const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
+const parseResolvableLines = (patch) => {
+    const result = new Set();
+    if (!patch) {
+        return result;
+    }
+    let rightLine = 0;
+    let inHunk = false;
+    for (const line of patch.split("\n")) {
+        const hunkMatch = line.match(HUNK_HEADER);
+        if (hunkMatch) {
+            rightLine = Number(hunkMatch[1]);
+            inHunk = true;
+            continue;
+        }
+        if (!inHunk || line.startsWith("\\ No newline")) {
+            continue;
+        }
+        if (line.startsWith("+") && !line.startsWith("+++")) {
+            result.add(rightLine);
+            rightLine += 1;
+            continue;
+        }
+        if (line.startsWith(" ")) {
+            rightLine += 1;
+        }
+    }
+    return result;
+};
+const buildResolvableMap = (files) => new Map(files.map((file) => [file.filename, parseResolvableLines(file.patch)]));
+const filterResolvableComments = (request, files, options = {}) => {
+    const includeOmissionNote = options.includeOmissionNote === true;
+    const resolvableByPath = buildResolvableMap(files);
+    const comments = request.comments.filter((comment) => {
+        const resolvableLines = resolvableByPath.get(comment.path);
+        return resolvableLines ? resolvableLines.has(comment.line) : false;
+    });
+    const droppedComments = request.comments.length - comments.length;
+    const note = includeOmissionNote && droppedComments > 0
+        ? `\n\n⚠️ ${droppedComments} inline comment(s) were omitted because their lines were not resolvable in the PR diff.`
+        : "";
+    return {
+        request: { ...request, body: `${request.body}${note}`.trim(), comments },
+        droppedComments
+    };
+};
+exports.filterResolvableComments = filterResolvableComments;
+
+
+/***/ }),
+
 /***/ 8718:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -450,6 +508,13 @@ exports.RepoClient = RepoClient;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ReviewPoster = void 0;
+const isLineResolutionError = (error) => {
+    if (!error || typeof error !== "object") {
+        return false;
+    }
+    const candidate = error;
+    return candidate.status === 422 && typeof candidate.message === "string" && candidate.message.includes("Line could not be resolved");
+};
 class ReviewPoster {
     octokit;
     constructor(octokit) {
@@ -459,14 +524,26 @@ class ReviewPoster {
         if (!this.octokit.rest.pulls?.createReview) {
             throw new Error("Octokit createReview API is not available.");
         }
-        await this.octokit.rest.pulls.createReview({
+        const baseRequest = {
             owner: context.owner,
             repo: context.repo,
             pull_number: context.pullNumber,
-            body: payload.summary,
-            event: payload.request.event,
-            comments: payload.request.comments
-        });
+            body: payload.request.body,
+            event: payload.request.event
+        };
+        try {
+            await this.octokit.rest.pulls.createReview({ ...baseRequest, comments: payload.request.comments });
+        }
+        catch (error) {
+            if (!isLineResolutionError(error) || payload.request.comments.length === 0) {
+                throw error;
+            }
+            await this.octokit.rest.pulls.createReview({
+                ...baseRequest,
+                body: `${payload.request.body}\n\n⚠️ Inline comments were removed because GitHub could not resolve at least one target line.`,
+                comments: []
+            });
+        }
     }
 }
 exports.ReviewPoster = ReviewPoster;
@@ -490,12 +567,14 @@ const convention_reader_1 = __nccwpck_require__(5147);
 const review_mapper_1 = __nccwpck_require__(18);
 const file_filter_1 = __nccwpck_require__(9431);
 const pr_client_1 = __nccwpck_require__(4442);
+const review_comment_validator_1 = __nccwpck_require__(4609);
 const repo_client_1 = __nccwpck_require__(6120);
 const review_poster_1 = __nccwpck_require__(8718);
 const openai_client_1 = __nccwpck_require__(2744);
 const review_runner_1 = __nccwpck_require__(3504);
 const system_prompt_1 = __nccwpck_require__(8148);
 const user_prompt_1 = __nccwpck_require__(6594);
+const shouldIncludeDiagnosticsInReview = () => process.env.DEBUG_LLM_RESPONSE === "true";
 const executeReviewFlow = async () => {
     const runtime = (0, actions_github_1.createActionsGitHubRuntime)();
     await (0, exports.executeReviewFlowWithRuntime)(runtime);
@@ -536,9 +615,13 @@ const executeReviewFlowWithRuntime = async (runtime) => {
         }),
         maxContextRounds: inputs.maxContextRounds
     });
+    const mappedRequest = (0, review_mapper_1.mapReviewResultToRequest)(review);
+    const validatedRequest = (0, review_comment_validator_1.filterResolvableComments)(mappedRequest, changedFiles, {
+        includeOmissionNote: shouldIncludeDiagnosticsInReview()
+    }).request;
     await reviewPoster.postReview(context, {
         summary: review.summary,
-        request: (0, review_mapper_1.mapReviewResultToRequest)(review)
+        request: validatedRequest
     });
 };
 exports.executeReviewFlowWithRuntime = executeReviewFlowWithRuntime;
@@ -553,6 +636,69 @@ const run = async () => {
 if (require.main === require.cache[eval('__filename')]) {
     void run();
 }
+
+
+/***/ }),
+
+/***/ 4710:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createDebugLogger = void 0;
+const DEBUG_FLAG = "DEBUG_LLM_RESPONSE";
+const MAX_CHARS_FLAG = "DEBUG_LLM_RESPONSE_MAX_CHARS";
+const REDACT_FLAG = "DEBUG_LLM_RESPONSE_REDACT";
+const DEFAULT_MAX_CHARS = 4000;
+const secretPatterns = [
+    /sk-[A-Za-z0-9_-]{10,}/g,
+    /ghp_[A-Za-z0-9]{20,}/g,
+    /Bearer\s+[A-Za-z0-9._-]{10,}/gi
+];
+const parseMaxChars = (raw) => {
+    if (!raw) {
+        return DEFAULT_MAX_CHARS;
+    }
+    const parsed = Number(raw);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        return DEFAULT_MAX_CHARS;
+    }
+    return parsed;
+};
+const shouldRedact = () => {
+    const raw = process.env[REDACT_FLAG];
+    if (!raw) {
+        return true;
+    }
+    return raw === "true";
+};
+const redactSecrets = (value) => secretPatterns.reduce((current, pattern) => current.replace(pattern, "[REDACTED]"), value);
+const truncate = (value, maxChars) => {
+    if (value.length <= maxChars) {
+        return value;
+    }
+    return `${value.slice(0, maxChars)}\n...[truncated ${value.length - maxChars} chars]`;
+};
+const createDebugLogger = () => {
+    const isEnabled = process.env[DEBUG_FLAG] === "true";
+    const maxChars = parseMaxChars(process.env[MAX_CHARS_FLAG]);
+    const redact = shouldRedact();
+    return {
+        isEnabled,
+        log: (label, value) => {
+            if (!isEnabled) {
+                return;
+            }
+            const sanitized = redact ? redactSecrets(value) : value;
+            const output = truncate(sanitized, maxChars);
+            console.log(`[llm-debug] ${label} start`);
+            console.log(output);
+            console.log(`[llm-debug] ${label} end`);
+        }
+    };
+};
+exports.createDebugLogger = createDebugLogger;
 
 
 /***/ }),
@@ -577,6 +723,85 @@ exports.createOpenAiClient = createOpenAiClient;
 
 /***/ }),
 
+/***/ 7218:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.normalizeReviewPayload = void 0;
+const isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+const APPROVAL_VALUES = ["approve", "request_changes", "comment"];
+const SEVERITY_MAP = {
+    critical: "critical",
+    high: "critical",
+    warning: "warning",
+    warn: "warning",
+    medium: "warning",
+    suggestion: "suggestion",
+    info: "suggestion",
+    low: "suggestion",
+    nit: "nitpick",
+    nitpick: "nitpick"
+};
+const parseApproval = (value) => {
+    if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase().replace(/\s+/g, "_");
+        if (APPROVAL_VALUES.includes(normalized)) {
+            return normalized;
+        }
+        return undefined;
+    }
+    if (typeof value === "boolean") {
+        return value ? "approve" : "request_changes";
+    }
+    return undefined;
+};
+const parseLine = (value) => {
+    if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+        return value;
+    }
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        if (Number.isInteger(parsed) && parsed > 0) {
+            return parsed;
+        }
+    }
+    return undefined;
+};
+const normalizeComment = (value) => {
+    if (!isObject(value)) {
+        return null;
+    }
+    const path = typeof value.path === "string" ? value.path : undefined;
+    const line = parseLine(value.line);
+    const bodySource = typeof value.body === "string" ? value.body : value.message;
+    const body = typeof bodySource === "string" ? bodySource : undefined;
+    if (!path || !line || !body) {
+        return null;
+    }
+    const severityRaw = typeof value.severity === "string" ? value.severity.toLowerCase().trim() : "suggestion";
+    const severity = SEVERITY_MAP[severityRaw] ?? "suggestion";
+    return { path, line, severity, body };
+};
+const normalizeReviewPayload = (value) => {
+    if (!isObject(value)) {
+        return value;
+    }
+    const summary = typeof value.summary === "string" ? value.summary : "";
+    const approval = parseApproval(value.approval);
+    const comments = Array.isArray(value.comments) ? value.comments.map(normalizeComment).filter(Boolean) : [];
+    return {
+        summary,
+        approval: approval ?? value.approval,
+        comments
+    };
+};
+exports.normalizeReviewPayload = normalizeReviewPayload;
+
+
+/***/ }),
+
 /***/ 3504:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -587,23 +812,30 @@ exports.runReview = void 0;
 const review_schema_1 = __nccwpck_require__(6546);
 const tool_definitions_1 = __nccwpck_require__(2593);
 const tool_executor_1 = __nccwpck_require__(2278);
+const review_normalizer_1 = __nccwpck_require__(7218);
+const debug_logger_1 = __nccwpck_require__(4710);
 const mapToolCall = (toolCall) => ({
     id: toolCall.id,
     name: toolCall.function.name,
     argumentsJson: toolCall.function.arguments
 });
+const debugLogger = (0, debug_logger_1.createDebugLogger)();
 const parseReview = (raw) => {
+    debugLogger.log("raw-response", raw);
     let parsed;
     try {
         parsed = JSON.parse(raw);
     }
-    catch {
+    catch (error) {
+        debugLogger.log("json-parse-error", error instanceof Error ? error.message : String(error));
         throw new Error("LLM returned invalid JSON.");
     }
-    if (!(0, review_schema_1.validateReviewResult)(parsed)) {
+    const normalized = (0, review_normalizer_1.normalizeReviewPayload)(parsed);
+    if (!(0, review_schema_1.validateReviewResult)(normalized)) {
+        debugLogger.log("parsed-json-invalid", JSON.stringify(normalized, null, 2));
         throw new Error("LLM response does not match review schema.");
     }
-    return parsed;
+    return normalized;
 };
 const runReview = async (args) => {
     const messages = [
@@ -620,6 +852,7 @@ const runReview = async (args) => {
         if (!message) {
             throw new Error("LLM returned no message.");
         }
+        debugLogger.log("response-metadata", JSON.stringify({ round, hasToolCalls: Boolean(message.tool_calls) }));
         if (!message.tool_calls || message.tool_calls.length === 0) {
             if (!message.content) {
                 throw new Error("LLM returned empty content.");
@@ -764,7 +997,13 @@ const buildSystemPrompt = () => [
     "Review pull request changes for bugs, security issues, performance regressions, and maintainability problems.",
     "Use repository conventions when available.",
     "You may call read_file to inspect additional files before finalizing.",
-    "Return ONLY strict JSON matching schema: {summary, comments[], approval}.",
+    "Return ONLY raw JSON, with no markdown fences and no extra text.",
+    "Use exact top-level keys: summary, comments, approval.",
+    "approval must be exactly one of: approve, request_changes, comment.",
+    "Each comment must include exact keys: path, line, severity, body.",
+    "severity must be one of: critical, warning, suggestion, nitpick.",
+    "line must be a positive integer number, not a string.",
+    "Example: {\"summary\":\"...\",\"approval\":\"comment\",\"comments\":[{\"path\":\"src/app.ts\",\"line\":12,\"severity\":\"warning\",\"body\":\"...\"}]}.",
     "Keep comments actionable, concise, and include concrete fix guidance."
 ].join(" ");
 exports.buildSystemPrompt = buildSystemPrompt;

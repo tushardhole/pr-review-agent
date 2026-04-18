@@ -178,6 +178,30 @@ This action requires:
 - Run `npm run package`
 - Open a PR with clear context and test notes
 
+## Release and Marketplace
+
+### Versioning strategy
+
+- Publish immutable tags like `v1.0.0`, `v1.0.1`, etc.
+- Keep a moving major tag (`v1`) that points to the latest stable `v1.x.y` release.
+- Consumers should use `@v1` in workflows for safe updates.
+
+### Release checklist
+
+1. Ensure `main` is green (`CI` + dogfood workflow).
+2. Run locally:
+   - `npm run lint`
+   - `npm test`
+   - `npm run package`
+3. Confirm `dist/index.js` is up to date and committed.
+4. Create and push release tags:
+   - `git tag v1.0.0`
+   - `git tag -f v1 v1.0.0`
+   - `git push origin v1.0.0`
+   - `git push origin v1 --force`
+5. Create GitHub Release from `v1.0.0`.
+6. Publish/list in GitHub Marketplace from the repo release UI.
+
 ## License
 
 MIT

@@ -1,6 +1,9 @@
 name: PR Review Agent
 description: AI-powered pull request review using OpenAI-compatible APIs.
-author: PR Review Agent
+author: Tushar Dhole
+branding:
+  icon: check-circle
+  color: purple
 inputs:
   github_token:
     description: GitHub token for reading PR data and posting review comments.
