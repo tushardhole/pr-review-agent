@@ -75,7 +75,7 @@ describe("executeReviewFlow integration", () => {
         owner: "acme",
         repo: "widget",
         pull_number: 11,
-        body: "Looks good",
+        body: "💬 Suggested decision: COMMENT\n\nLooks good",
         event: "COMMENT"
       })
     );
