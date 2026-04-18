@@ -87,6 +87,21 @@ Use these optional environment variables on the action step when diagnosing prov
 - `DEBUG_LLM_RESPONSE_MAX_CHARS` (default `4000`) - truncate debug payload output
 - `DEBUG_LLM_RESPONSE_REDACT` (`true`/`false`, default `true`) - redact token-like secrets from debug logs
 
+Example usage:
+
+```yaml
+- uses: tushardhole/pr-review-agent@v1
+  env:
+    DEBUG_LLM_RESPONSE: "true"
+    DEBUG_LLM_RESPONSE_MAX_CHARS: "2500"
+    DEBUG_LLM_RESPONSE_REDACT: "true"
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+```
+
+By default, user-facing review comments hide internal diagnostics (for example, dropped inline anchors). These details are only surfaced in the review body when debug mode is enabled.
+
 ## Provider Examples
 
 ### OpenAI (default)

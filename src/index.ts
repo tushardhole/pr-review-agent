@@ -16,6 +16,8 @@ import { buildSystemPrompt } from "./prompts/system-prompt";
 import { buildUserPrompt } from "./prompts/user-prompt";
 import { PullRequestContext } from "./types";
 
+const shouldIncludeDiagnosticsInReview = (): boolean => process.env.DEBUG_LLM_RESPONSE === "true";
+
 export const executeReviewFlow = async (): Promise<void> => {
   const runtime = createActionsGitHubRuntime();
   await executeReviewFlowWithRuntime(runtime);
@@ -69,7 +71,9 @@ export const executeReviewFlowWithRuntime = async (runtime: ActionsGitHubRuntime
     maxContextRounds: inputs.maxContextRounds
   });
   const mappedRequest = mapReviewResultToRequest(review);
-  const validatedRequest = filterResolvableComments(mappedRequest, changedFiles).request;
+  const validatedRequest = filterResolvableComments(mappedRequest, changedFiles, {
+    includeOmissionNote: shouldIncludeDiagnosticsInReview()
+  }).request;
 
   await reviewPoster.postReview(context, {
     summary: review.summary,

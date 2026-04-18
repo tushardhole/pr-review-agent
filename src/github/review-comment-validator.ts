@@ -5,6 +5,10 @@ interface ValidationResult {
   droppedComments: number;
 }
 
+interface ValidationOptions {
+  includeOmissionNote?: boolean;
+}
+
 const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
 const parseResolvableLines = (patch?: string): Set<number> => {
@@ -42,8 +46,10 @@ const buildResolvableMap = (files: PrFile[]): Map<string, Set<number>> =>
 
 export const filterResolvableComments = (
   request: GitHubReviewRequest,
-  files: PrFile[]
+  files: PrFile[],
+  options: ValidationOptions = {}
 ): ValidationResult => {
+  const includeOmissionNote = options.includeOmissionNote === true;
   const resolvableByPath = buildResolvableMap(files);
   const comments = request.comments.filter((comment) => {
     const resolvableLines = resolvableByPath.get(comment.path);
@@ -51,7 +57,7 @@ export const filterResolvableComments = (
   });
   const droppedComments = request.comments.length - comments.length;
   const note =
-    droppedComments > 0
+    includeOmissionNote && droppedComments > 0
       ? `\n\n⚠️ ${droppedComments} inline comment(s) were omitted because their lines were not resolvable in the PR diff.`
       : "";
   return {
