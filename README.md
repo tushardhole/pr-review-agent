@@ -3,7 +3,7 @@
 # PR Review Agent
 
 [![CI](https://img.shields.io/github/actions/workflow/status/tushardhole/pr-review-agent/ci.yml?branch=main&label=ci)](https://github.com/tushardhole/pr-review-agent/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/tushardhole/pr-review-agent)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-20%2B-3C873A)](https://nodejs.org/)
 
 AI-powered pull request review for GitHub Actions. Works with any OpenAI-compatible LLM API.
