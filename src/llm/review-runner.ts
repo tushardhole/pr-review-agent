@@ -2,6 +2,7 @@ import { IRepoClient, PullRequestContext, ReviewResult } from "../types";
 import { validateReviewResult } from "../prompts/review-schema";
 import { READ_FILE_TOOL } from "./tool-definitions";
 import { ToolCall, executeToolCall } from "./tool-executor";
+import { normalizeReviewPayload } from "./review-normalizer";
 
 type Message = Record<string, unknown>;
 type ToolCallRaw = { id: string; function: { name: string; arguments: string } };
@@ -49,11 +50,12 @@ const parseReview = (raw: string): ReviewResult => {
     debugLog("json-parse-error", error instanceof Error ? error.message : String(error));
     throw new Error("LLM returned invalid JSON.");
   }
-  if (!validateReviewResult(parsed)) {
-    debugLog("parsed-json-invalid", JSON.stringify(parsed, null, 2));
+  const normalized = normalizeReviewPayload(parsed);
+  if (!validateReviewResult(normalized)) {
+    debugLog("parsed-json-invalid", JSON.stringify(normalized, null, 2));
     throw new Error("LLM response does not match review schema.");
   }
-  return parsed;
+  return normalized;
 };
 
 export const runReview = async (args: ReviewRunArgs): Promise<ReviewResult> => {
